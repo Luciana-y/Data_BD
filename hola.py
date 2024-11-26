@@ -2,12 +2,14 @@ import os
 import pandas as pd
 from faker import Faker
 import random
+import uuid
+import datetime
 
 # Inicializar Faker
 fake = Faker()
 
 # Directorio base para los archivos generados
-base_dir = (r"C:\Users\Familia\BD\Data_p")
+base_dir = r"C:\Users\Familia\BD\Data_p"
 
 # Variables globales para almacenar datos generados
 personas = []
@@ -19,10 +21,10 @@ buses = []
 rutas = []
 estaciones = []
 tarjetas = []
-viajes = []
-paradas = []
 recargas = []
+paradas = []
 historial_manejos = []
+viajes = []
 
 # Crear carpetas organizadas por tamaño de datos
 def create_directories():
@@ -44,94 +46,159 @@ def generate_persona_data(size):
     ]
     return pd.DataFrame(personas)
 
-def generate_trabajador_data(size):
-    global trabajadores
-    trabajadores = [{"dni": persona["dni"]} for persona in personas]
-    return pd.DataFrame(trabajadores)
+def generate_trabajador_and_usuario_data():
+    global trabajadores, usuarios
+    trabajadores_dnis = random.sample(personas, 2000)
+    usuarios_dnis = random.sample([persona for persona in personas if persona not in trabajadores_dnis], 3000)
 
-def generate_usuario_data(size):
-    global usuarios
-    usuarios = [{"dni": persona["dni"]} for persona in personas]
-    return pd.DataFrame(usuarios)
+    trabajadores = [{"dni": trabajador["dni"]} for trabajador in trabajadores_dnis]
+    usuarios = [{"dni": usuario["dni"]} for usuario in usuarios_dnis]
 
-def generate_conductor_data(size):
-    global conductores
-    conductores = [{"dni": persona["dni"], "licencia": fake.unique.random_number(digits=9, fix_len=True)} for persona in personas]
-    return pd.DataFrame(conductores)
+    return pd.DataFrame(trabajadores), pd.DataFrame(usuarios)
 
-def generate_guia_data(size):
-    global guias
-    guias = [{"dni": persona["dni"], "nombre_estacion": fake.word()} for persona in personas]
-    return pd.DataFrame(guias)
+def generate_conductor_and_guia_data():
+    global conductores, guias
+    conductores_dnis = random.sample(trabajadores, 1000)
+    guias_dnis = random.sample([trabajador for trabajador in trabajadores if trabajador not in conductores_dnis], 1000)
 
+    conductores = [
+        {"dni": conductor["dni"], "licencia": fake.unique.random_number(digits=9, fix_len=True)}
+        for conductor in conductores_dnis
+    ]
+    guias = [
+        {"dni": guia["dni"], "nombre_estacion": random.choice(estaciones)["nombre_estacion"]}
+        for guia in guias_dnis
+    ]
+
+    return pd.DataFrame(conductores), pd.DataFrame(guias)
 def generate_bus_data(size):
     global buses
-    buses = [{"placa": fake.license_plate(), "aforo_bus": random.randint(31, 79), "modelo": fake.word()} for _ in range(size)]
+    buses = [{"placa": fake.unique.license_plate(), "aforo_bus": random.randint(31, 79), "modelo": fake.word()} for _ in range(size)]
     return pd.DataFrame(buses)
 
 def generate_ruta_data(size):
     global rutas
-    rutas = [{"nombre_ruta": fake.word(), "nro_estaciones": random.randint(6, 55), "tiempo_recorrido": random.randint(31, 120)} for _ in range(size)]
+    rutas = [
+        {
+            "nombre_ruta": str(uuid.uuid4())[:15],
+            "nro_estaciones": random.randint(6, 55),
+            "tiempo_recorrido": random.randint(31, 120)
+        }
+        for _ in range(size)
+    ]
     return pd.DataFrame(rutas)
 
 def generate_estacion_data(size):
     global estaciones
-    estaciones = [{"nombre_estacion": fake.word(), "distrito": random.choice(['Carabayllo', 'Comas', 'Independencia', 'San Martín de Porres', 'Rímac','Breña', 'Lima', 'Chorrillos', 'La Victoria', 'Lince', 'San Isidro',
- 'Barranco', 'Miraflores', 'Surquillo']), "aforo_estacion": random.randint(31, 299)} for _ in range(size)]
+    estaciones = [
+        {
+            "nombre_estacion": str(uuid.uuid4())[:15],
+            "distrito": random.choice([
+                'Carabayllo', 'Comas', 'Independencia', 'San Martin de Porres', 'Rimac',
+                'Brena', 'Lima', 'Chorrillos', 'La Victoria', 'Lince', 'San Isidro',
+                'Barranco', 'Miraflores', 'Surquillo'
+            ]),
+            "aforo_estacion": random.randint(31, 299)
+        }
+        for _ in range(size)
+    ]
     return pd.DataFrame(estaciones)
 
-def generate_tarjeta_data(size):
+def generate_tarjeta_data():
     global tarjetas
-    tarjetas = [{"id_tarjeta": fake.unique.uuid4(), "saldo": 0, "dni": random.choice(personas)["dni"]} for _ in range(size)]
+    tarjetas = [
+        {
+            "id_tarjeta": str(uuid.uuid4()),
+            "saldo": round(random.uniform(0, 100), 2),
+            "dni": usuario["dni"]
+        }
+        for usuario in usuarios
+    ]
     return pd.DataFrame(tarjetas)
-
-def generate_viaje_data(size):
-    global viajes
-    viajes = [{"id_viaje": i + 1, "nombre_ruta": random.choice(rutas)["nombre_ruta"], "id_tarjeta": random.choice(tarjetas)["id_tarjeta"]} for i in range(size)]
-    return pd.DataFrame(viajes)
-
-def generate_parada_data(size):
-    global paradas
-    paradas = [{"placa": random.choice(buses)["placa"], "nombre_estacion": random.choice(estaciones)["nombre_estacion"], "fecha_parada": fake.date_time_this_year()} for _ in range(size)]
-    return pd.DataFrame(paradas)
 
 def generate_recarga_data(size):
     global recargas
-    recargas = [{"id_tarjeta": random.choice(tarjetas)["id_tarjeta"], "fecha_recarga": fake.date_time_this_year(), "monto": random.uniform(0.21, 100)} for _ in range(size)]
+    recargas = [
+        {
+            "id_tarjeta": random.choice(tarjetas)["id_tarjeta"],
+            "fecha_recarga": fake.date_time_this_year(),
+            "monto": round(random.uniform(0.2, 100), 2)
+        }
+        for _ in range(size)
+    ]
     return pd.DataFrame(recargas)
+
+def generate_parada_data(size):
+    global paradas
+    paradas = [
+        {
+            "placa": random.choice(buses)["placa"],
+            "nombre_estacion": random.choice(estaciones)["nombre_estacion"],
+            "fecha_parada": fake.date_time_this_year()
+        }
+        for _ in range(size)
+    ]
+    return pd.DataFrame(paradas)
 
 def generate_historial_manejo_data(size):
     global historial_manejos
-    historial_manejos = [{"dni": random.choice(conductores)["dni"], "placa ": random.choice(buses)["placa"], "nombre_ruta": random.choice(rutas)["nombre_ruta"], "fecha_historial": fake.date_time_this_year()} for _ in range(size)]
+    historial_manejos = [
+        {
+            "dni": random.choice(conductores)["dni"],
+            "placa": random.choice(buses)["placa"],
+            "nombre_ruta": random.choice(rutas)["nombre_ruta"],
+            "fecha_historial": datetime.datetime.fromtimestamp(fake.date_time_this_year().timestamp())  # Convertir a formato timestamp
+        }
+        for _ in range(size)
+    ]
     return pd.DataFrame(historial_manejos)
 
-# Generar datos para todas las tablas y guardarlos
-def generate_and_save_data():
-    sizes = [100000]  # Ajusta el tamaño según sea necesario
-    functions = [
-        ("Persona", generate_persona_data),
-        ("Trabajador", generate_trabajador_data),
-        ("Usuarios", generate_usuario_data),
-        ("Conductor", generate_conductor_data),
-        ("Guia", generate_guia_data),
-        ("Bus", generate_bus_data),
-        ("Ruta", generate_ruta_data),
-        ("Estacion", generate_estacion_data),
-        ("Tarjeta", generate_tarjeta_data),
-        ("Viaje", generate_viaje_data),
-        ("Parada", generate_parada_data),
-        ("Recarga", generate_recarga_data),
-        ("Historial de manejos", generate_historial_manejo_data)
-    ]
 
-    for size in sizes:
-        folder = os.path.join(base_dir, str(size))
-        for table_name, func in functions:
-            print(f"Generando datos para {table_name} con {size} registros...")
-            data = func(size)
-            file_path = os.path.join(folder, f"{table_name.lower()}.csv")
-            data.to_csv(file_path, index=False, sep=',', quoting=1)
-            print(f"Archivo generado: {file_path}")
+def generate_viaje_data(size):
+    global viajes
+    viajes = [
+        {
+            "id_viaje": i + 1,
+            "nombre_ruta": random.choice(rutas)["nombre_ruta"],
+            "id_tarjeta": random.choice(tarjetas)["id_tarjeta"]
+        }
+        for i in range(size)
+    ]
+    return pd.DataFrame(viajes)
+
+def generate_and_save_data():
+    folder = os.path.join(base_dir, '1000')
+    os.makedirs(folder, exist_ok=True)
+
+    print("Generando datos...")
+
+    # Generar primero las estaciones
+    estaciones_df = generate_estacion_data(1000)
+
+    # Luego generar las demás entidades
+    personas_df = generate_persona_data(5000)
+    trabajadores_df, usuarios_df = generate_trabajador_and_usuario_data()
+    conductores_df, guias_df = generate_conductor_and_guia_data()  # Aquí ahora sí pueden asignarse estaciones a los guías
+    tarjetas_df = generate_tarjeta_data()
+    recargas_df = generate_recarga_data(2000)
+    buses_df = generate_bus_data(1000)
+    rutas_df = generate_ruta_data(1000)
+    paradas_df = generate_parada_data(1000)
+    historial_df = generate_historial_manejo_data(1000)
+    viajes_df = generate_viaje_data(1000)
+
+    # Guardar datos
+    for table_name, data in [
+        ("Persona", personas_df), ("Trabajador", trabajadores_df),
+        ("Usuarios", usuarios_df), ("Conductor", conductores_df),
+        ("Guia", guias_df), ("Tarjeta", tarjetas_df), ("Recarga", recargas_df),
+        ("Bus", buses_df), ("Ruta", rutas_df), ("Estacion", estaciones_df),
+        ("Parada", paradas_df), ("HistorialManejos", historial_df),
+        ("Viaje", viajes_df)
+    ]:
+        file_path = os.path.join(folder, f"{table_name.lower()}.csv")
+        data.to_csv(file_path, index=False, sep=',', quoting=1)
+        print(f"Archivo generado: {file_path}")
 
 # Crear carpetas y generar datos
 create_directories()
